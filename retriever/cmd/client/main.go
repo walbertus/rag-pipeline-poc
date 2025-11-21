@@ -96,6 +96,21 @@ func run(ctx context.Context, args []string) error {
 		)
 	}
 
+	result2, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "query",
+		Arguments: map[string]any{
+			"query": "example",
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	slog.LogAttrs(ctx,
+		slog.LevelInfo,
+		"call tool result",
+		slog.Any("result", result2),
+	)
 	return nil
 }
 

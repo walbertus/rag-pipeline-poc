@@ -7,13 +7,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY etlutil/pyproject.toml etlutil/uv.lock ./
 
 # Install dependencies
 RUN uv sync --frozen --no-install-project --no-dev
 
 # Copy source code
-COPY . .
+COPY etlutil . 
+
+# Copy dataset files
+COPY datasets /app/datasets
 
 # Expose port
 EXPOSE 8000

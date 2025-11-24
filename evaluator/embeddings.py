@@ -1,6 +1,22 @@
 import requests
 from typing import List
 from langchain_core.embeddings import Embeddings
+from langchain_ollama import OllamaEmbeddings
+from ragas.embeddings import BaseRagasEmbeddings
+
+class OllamaRagasEmbeddings(OllamaEmbeddings):
+    # need to implement BaseRagasEmbeddings https://docs.ragas.io/en/stable/references/embeddings/
+
+    def __init__(self, model: str):
+        super().__init__(model=model)
+
+    async def embed_text(self, text: str, **kwargs) -> List[float]:
+        return self.aembed_query(text)
+
+    async def aembed_text(self, text: str, **kwargs) -> List[float]:
+        return self.aembed_query(text)
+
+        
 
 class ModelGardenEmbeddings(Embeddings):
     api_url: str

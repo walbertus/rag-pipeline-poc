@@ -7,12 +7,14 @@ import (
 )
 
 type Flag struct {
-	_           struct{}
-	addrFlag    string
-	debugFlag   bool
-	jsonFlag    bool
-	milvusAddr  string
-	versionFlag bool
+	_              struct{}
+	addrFlag       string
+	debugFlag      bool
+	jsonFlag       bool
+	milvusAddr     string
+	modelGardenURL string
+	modelName      string
+	versionFlag    bool
 }
 
 func (f *Flag) Addr() string {
@@ -31,6 +33,14 @@ func (f *Flag) MilvusAddr() string {
 	return f.milvusAddr
 }
 
+func (f *Flag) ModelGardenURL() string {
+	return f.modelGardenURL
+}
+
+func (f *Flag) ModelName() string {
+	return f.modelName
+}
+
 func (f *Flag) Version() bool {
 	return f.versionFlag
 }
@@ -42,6 +52,8 @@ func ParseFlag(args []string) (*Flag, error) {
 	fs.BoolVar(&f.debugFlag, "debug", false, "enable debug logging")
 	fs.BoolVar(&f.jsonFlag, "json", false, "enable JSON logging")
 	fs.StringVar(&f.milvusAddr, "milvus-addr", "localhost:19530", "milvus vector database address")
+	fs.StringVar(&f.modelGardenURL, "model-garden-url", "https://modelgarden.com/embeddings", "Model Garden embeddings endpoint URL")
+	fs.StringVar(&f.modelName, "model-name", "embeddinggemma-300m", "Model Garden model name for embeddings")
 	fs.BoolVar(&f.versionFlag, "version", false, "print version and exit")
 
 	err := fs.Parse(args[1:])

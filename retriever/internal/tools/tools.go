@@ -5,21 +5,25 @@ import (
 	"errors"
 	"log/slog"
 
-	milvus "github.com/milvus-io/milvus-sdk-go/v2/client"
-	"github.com/milvus-io/milvus-sdk-go/v2/entity"
+	"github.com/gopaytech/rag-pipeline-poc/retriever/internal/model_garden"
+	"github.com/milvus-io/milvus/client/v2/entity"
+	"github.com/milvus-io/milvus/client/v2/index"
+	"github.com/milvus-io/milvus/client/v2/milvusclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Tools struct {
-	_        struct{}
-	database milvus.Client
-	logger   *slog.Logger
+	_           struct{}
+	database    *milvusclient.Client
+	logger      *slog.Logger
+	modelGarden *model_garden.ModelGarden
 }
 
-func RegisterTools(logger *slog.Logger, server *mcp.Server, database milvus.Client) *Tools {
+func RegisterTools(logger *slog.Logger, server *mcp.Server, database *milvusclient.Client, modelGarden *model_garden.ModelGarden) *Tools {
 	t := &Tools{
-		database: database,
-		logger:   logger.WithGroup("tools"),
+		database:    database,
+		logger:      logger.WithGroup("tools"),
+		modelGarden: modelGarden,
 	}
 
 	mcp.AddTool(server, QueryTool, t.Query)
@@ -38,39 +42,51 @@ func (t *Tools) Query(ctx context.Context,
 		slog.Any("req", req),
 	)
 
-	sp, err := entity.NewIndexBinFlatSearchParam(10) // default search params
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if ok, err := t.database.HasCollection(ctx, "pdf_collection"); err != nil {
+	if ok, err := t.database.HasCollection(ctx, milvusclient.NewHasCollectionOption("pdf_collection")); err != nil {
 		return nil, nil, err
 	} else if !ok {
 		return nil, nil, errors.New("collection does not exist")
 	}
 
-	result, err := t.database.Search(ctx,
-		"pdf_collection",
-		[]string{},
-		"",
-		[]string{"text", "metadata"},
-		nil,
-		"data",    // vector field
-		entity.L2, // default metric type
-		5,         // top k
-		sp,
-		[]milvus.SearchQueryOptionFunc{}...,
+	denseVector := make([]entity.Vector, 0, 1)
+	if resp, err := t.modelGarden.Vectorize(ctx, []string{input.Query}); err != nil {
+		return nil, nil, err
+	} else {
+		denseVector = append(denseVector, entity.FloatVector(resp[0]))
+	}
+	param := index.NewSparseAnnParam()
+	param.WithDropRatio(0.2)
+	rs, err := t.database.HybridSearch(ctx,
+		milvusclient.NewHybridSearchOption(
+			"pdf_collection",
+			2,
+			milvusclient.NewAnnRequest(
+				"vector_dense",
+				2,
+				denseVector...,
+			).WithANNSField("vector_dense"),
+			milvusclient.NewAnnRequest(
+				"vector_sparse",
+				2,
+				entity.Text(input.Query),
+			).WithANNSField("vector_sparse").WithAnnParam(param),
+		).
+			WithOutputFields("text", "metadata").
+			WithReranker(milvusclient.NewRRFReranker()),
 	)
 	if err != nil {
 		return nil, nil, err
 	}
-	t.logger.LogAttrs(ctx,
-		slog.LevelInfo,
-		"search results",
-		slog.Any("result", result),
-	)
 
-	// another optional to do is augment the input query
+	for _, r := range rs {
+		t.logger.LogAttrs(ctx,
+			slog.LevelInfo,
+			"field info",
+			slog.Any("C", r.GetColumn("text").FieldData().GetScalars().GetStringData().GetData()),
+			slog.Any("D", r.GetColumn("metadata").FieldData().GetScalars().GetJsonData().GetData()),
+		)
+	}
+
 	return nil, &QueryOutput{
 		TopK: []string{"result1", "result2", "result3"},
 	}, nil

@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/gopaytech/rag-pipeline-poc/retriever/internal/flagset"
+	"github.com/gopaytech/rag-pipeline-poc/retriever/internal/model_garden"
 	"github.com/gopaytech/rag-pipeline-poc/retriever/internal/tools"
-	milvus "github.com/milvus-io/milvus-sdk-go/v2/client"
+	"github.com/milvus-io/milvus/client/v2/milvusclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/grpc"
 )
@@ -49,7 +50,7 @@ func run(ctx context.Context, args []string) error {
 		slog.String("addr", flag.Addr()),
 	)
 
-	client, err := milvus.NewClient(ctx, milvus.Config{
+	client, err := milvusclient.New(ctx, &milvusclient.ClientConfig{
 		Address: flag.MilvusAddr(),
 		DialOptions: []grpc.DialOption{
 			grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
@@ -71,8 +72,7 @@ func run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	defer client.Close()
+	defer client.Close(ctx)
 
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    Name,
@@ -81,7 +81,14 @@ func run(ctx context.Context, args []string) error {
 		Logger: slog.Default().WithGroup("mcp_server"),
 	})
 
-	tools.RegisterTools(slog.Default(), server, client)
+	tools.RegisterTools(slog.Default(), server, client,
+		model_garden.NewModelGarden(
+			&http.Client{},
+			slog.Default(),
+			flag.ModelGardenURL(),
+			flag.ModelName(),
+		),
+	)
 
 	errCh := make(chan error, 1)
 	go func() {

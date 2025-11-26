@@ -10,6 +10,7 @@ def load_config(filepath):
 class Config:
     vector_store: "VectorStoreConfig"
     log_level: str
+    dataset_path: str
 
     def __init__(self, filepath):
         config = load_config(filepath)
@@ -17,6 +18,7 @@ class Config:
             raise ValueError("Failed to load configuration.")
         self.vector_store = VectorStoreConfig(config)
         self.log_level = config.get("log_level", "INFO")
+        self.dataset_path = config.get("dataset_path", None)
 
 
 class VectorStoreConfig:

@@ -1,0 +1,6 @@
+log_level: DEBUG
+vector_store:
+  type: milvus
+  host: localhost
+  port: 19530
+  collection_name: my_collection

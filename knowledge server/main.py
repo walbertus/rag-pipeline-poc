@@ -1,8 +1,7 @@
-CONFIG_FILE_PATH = "config.yaml"
 import logging
 from config.config import Config
 
-# from pprint import p
+CONFIG_FILE_PATH = "config.yaml"
 
 
 def main():

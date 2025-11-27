@@ -38,7 +38,9 @@ class DirectoryLoader(BaseLoader):
         self.logger.debug("Loading PDF documents from %s", self.pdf_loader.path)
         for doc in self.pdf_loader.lazy_load():
             yield doc
-        self.logger.debug("Loading Markdown documents from %s", self.md_loader.blob_loader.path)
+        self.logger.debug(
+            "Loading Markdown documents from %s", self.md_loader.blob_loader.path
+        )
         for doc in self.md_loader.lazy_load():
             yield doc
 

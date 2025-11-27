@@ -2,6 +2,9 @@ log_level: DEBUG
 dataset_path: ../datasets/
 vector_store:
   type: milvus
-  host: localhost
-  port: 19530
+  url: "http://localhost:19530"
   collection_name: my_collection
+  reset_collection: true
+  enable_full_text_search: true
+chunk_size: 1000
+chunk_overlap: 200

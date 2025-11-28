@@ -17,7 +17,7 @@ class TextParser(BaseBlobParser):
         yield Document(page_content=content, metadata=metadata)
 
     def parse(self, blob: Blob) -> list[Document]:
-        return self.lazy_parse()
+        return list(self.lazy_parse(blob=blob))
 
 
 class DirectoryLoader(BaseLoader):

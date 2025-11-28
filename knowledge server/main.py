@@ -1,6 +1,10 @@
 import logging
 from config.config import Config
 from loader.loader import DirectoryLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+from vector_store.milvus import MilvusVectorStore
+from langchain_ollama import OllamaEmbeddings
 
 CONFIG_FILE_PATH = "config.yaml"
 
@@ -25,10 +29,42 @@ def main():
 
     logger.info("Loading documents from %s", config.dataset_path)
     loader = DirectoryLoader(config.dataset_path, logger)
-    for doc in loader.lazy_load():
+    docs = loader.load()
+    for doc in docs:
         logger.info("Loaded document from %s", doc.metadata.get("source", "unknown"))
         logger.debug("Document content: %s", doc.page_content[:100])
+    
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=config.chunk_size,
+        chunk_overlap=config.chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
 
+    vector_store = MilvusVectorStore(
+        config.vector_store,
+        chunk_size=config.chunk_size,
+        chunk_overlap=config.chunk_overlap,
+        embeddings=OllamaEmbeddings(
+            model="embeddinggemma:latest"
+        ),  # Replace with your actual embeddings class
+        logger=logger,
+    )
+    chunks = splitter.split_documents(docs)
+    logger.info("Adding %d document chunks to the vector store", len(chunks))
+    vector_store.add_documents(chunks)
+
+    logger.debug("Searching for query: %s", "What is Barito project name is inspired from?")
+    results = vector_store.search(query="What is Barito project name is inspired from?", top_k=4)
+    logger.debug("Search results total: %s", len(results))
+    for i, result in enumerate(results):
+        logger.info("Result %d: %s", i + 1, result.page_content[:200])
+
+    logger.info("Searching for query: %s", "What inspire the barito project name?")
+    results = vector_store.search(query="What inspire the barito project name?", top_k=4)
+    logger.debug("Search results total: %s", len(results))
+    for i, result in enumerate(results):
+        logger.info("Result %d: %s", i + 1, result.page_content[:200])
 
 if __name__ == "__main__":
     main()

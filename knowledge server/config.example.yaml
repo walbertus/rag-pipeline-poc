@@ -3,7 +3,7 @@ dataset_path: ../datasets/
 vector_store:
   type: milvus
   url: "http://localhost:19530"
-  collection_name: my_collection
+  collection_name: knowledge_base
   reset_collection: true
   enable_full_text_search: true
 chunk_size: 1000

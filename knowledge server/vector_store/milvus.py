@@ -6,6 +6,7 @@ from pymilvus import (
     MilvusClient,
     RRFRanker,
 )
+import logging
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
@@ -19,6 +20,7 @@ class MilvusVectorStore:
         chunk_size: int,
         chunk_overlap: int,
         embeddings: Embeddings,
+        logger: logging.Logger,
     ):
         self.client = MilvusClient(uri=config.url)
         self.chunk_size = chunk_size
@@ -26,6 +28,7 @@ class MilvusVectorStore:
         self.vector_dim = self._get_embedding_dimension(embeddings)
         self.config = config
         self.embeddings = embeddings
+        self.logger = logger
 
         if config.reset_collection:
             self._reset_collection()
@@ -82,10 +85,10 @@ class MilvusVectorStore:
 
         index_params = self.client.prepare_index_params()
         index_params.add_index(
-            field_name="vector_dense",
-            index_name="vector_dense_index",
+            field_name="text_vector_dense",
+            index_name="text_vector_dense_index",
             index_type="AUTOINDEX",  # Need to compare with IVF_FLAT
-            metric_type="COSINE",  # Need to compare with L2 (Euclidean)
+            metric_type="IP",  # Need to compare with L2 (Euclidean)
         )
 
         if self.config.enable_full_text_search:
@@ -113,25 +116,28 @@ class MilvusVectorStore:
             )
 
         self.client.create_collection(
-            name=self.config.collection_name,
+            collection_name=self.config.collection_name,
             schema=schema,
             index_params=index_params,
         )
 
     def __document_to_milvus_format(self, document: Document) -> dict:
         return {
-            "text": document.content,
-            "text_vector_dense": self.embeddings.embed_query(document.content),
+            "text": document.page_content,
+            "text_vector_dense": self.embeddings.embed_query(document.page_content),
             "metadata": document.metadata,
         }
 
     def add_documents(self, documents: list[Document]) -> None:
+        self.logger.debug("Adding %d documents to the collection", len(documents))
+        data = [self.__document_to_milvus_format(doc) for doc in documents]
         self.client.insert(
             collection_name=self.config.collection_name,
-            data=[self.__document_to_milvus_format(doc) for doc in documents],
+            data=data,
         )
+        self.client.flush(collection_name=self.config.collection_name)
 
-    def search(self, query: str, top_k: int) -> list[Document]:
+    def search(self, query: str, top_k: int = 4) -> list[Document]:
         vector_search = AnnSearchRequest(
             data=[self.embeddings.embed_query(query)],
             anns_field="text_vector_dense",
@@ -144,12 +150,11 @@ class MilvusVectorStore:
             param={"drop_ratio_search": 0.2},
             limit=top_k * 2,  # retrieve more to allow reranking
         )
-
         searchs = [vector_search]
         if self.config.enable_full_text_search:
             searchs.append(full_text_search)
 
-        results = self.client.hybrid_search(
+        search_results = self.client.hybrid_search(
             collection_name=self.config.collection_name,
             reqs=searchs,
             ranker=RRFRanker(),
@@ -158,10 +163,14 @@ class MilvusVectorStore:
         )
 
         results = []
-        for hits in results:
+        for hits in search_results:
             for hit in hits:
-                doc = Document(hit.entity.get("text"))
-                doc.metadata = hit.entity.get("metadata")
-                results.append(doc)
+                if hit.entity is None:
+                    self.logger.warning("Hit entity is unexpected None, skipping.")
+                    continue
+                else:
+                    doc = Document(page_content=hit.entity.get("text"))
+                    doc.metadata = hit.entity.get("metadata")
+                    results.append(doc)
 
         return results

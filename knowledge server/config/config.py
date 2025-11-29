@@ -13,6 +13,7 @@ class Config:
     dataset_path: str
     chunk_size: int
     chunk_overlap: int
+    embeddings: "EmbeddingsConfig"    
 
     def __init__(self, filepath):
         config = load_config(filepath)
@@ -23,7 +24,21 @@ class Config:
         self.dataset_path = config.get("dataset_path", None)
         self.chunk_size = config.get("chunk_size", 1000)
         self.chunk_overlap = config.get("chunk_overlap", 200)
+        self.embeddings = EmbeddingsConfig(config)
 
+class EmbeddingsConfig:
+    source: str
+    model: str
+
+    def __init__(self, config: dict):
+        embeddings_config = config.get("embeddings", None)
+        if embeddings_config is None:
+            raise ValueError(
+                "Embeddings configuration is missing in the config file."
+            )
+
+        self.source = embeddings_config.get("source", None)
+        self.model = embeddings_config.get("model", None)
 
 class VectorStoreConfig:
     type: str

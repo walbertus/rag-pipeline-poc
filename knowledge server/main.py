@@ -2,9 +2,11 @@ import logging
 from config.config import Config
 from loader.loader import DirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from mcp.server.fastmcp import FastMCP
 
+
+from model.factory import EmbeddingsFactory
 from vector_store.milvus import MilvusVectorStore
-from langchain_ollama import OllamaEmbeddings
 
 CONFIG_FILE_PATH = "config.yaml"
 
@@ -41,13 +43,13 @@ def main():
         is_separator_regex=False,
     )
 
+    embeddings = EmbeddingsFactory.get_embeddings(config.embeddings)
+
     vector_store = MilvusVectorStore(
         config.vector_store,
         chunk_size=config.chunk_size,
         chunk_overlap=config.chunk_overlap,
-        embeddings=OllamaEmbeddings(
-            model="embeddinggemma:latest"
-        ),  # Replace with your actual embeddings class
+        embeddings=embeddings,
         logger=logger,
     )
     chunks = splitter.split_documents(docs)
@@ -65,6 +67,18 @@ def main():
     logger.debug("Search results total: %s", len(results))
     for i, result in enumerate(results):
         logger.info("Result %d: %s", i + 1, result.page_content[:200])
+
+    mcp_server = FastMCP("KnowledgeServer")
+
+    @mcp_server.tool()
+    def query_knowledge_base(query: str, top_k: int = 4) -> list[str]:
+        """Query the knowledge base to gather relevant information."""
+        logger.info("Received query: %s", query)
+        results = vector_store.search(query=query, top_k=top_k)
+        logger.info("Returning %d results", len(results))
+        return [result.page_content for result in results]
+
+    mcp_server.run(transport="streamable-http")
 
 if __name__ == "__main__":
     main()

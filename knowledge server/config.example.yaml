@@ -1,5 +1,4 @@
 log_level: DEBUG
-dataset_path: ../datasets/
 vector_store:
   type: milvus
   url: "http://localhost:19530"

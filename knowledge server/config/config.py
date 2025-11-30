@@ -10,7 +10,6 @@ def load_config(filepath):
 class Config:
     vector_store: "VectorStoreConfig"
     log_level: str
-    dataset_path: str
     chunk_size: int
     chunk_overlap: int
     embeddings: "EmbeddingsConfig"    
@@ -21,7 +20,6 @@ class Config:
             raise ValueError("Failed to load configuration.")
         self.vector_store = VectorStoreConfig(config)
         self.log_level = config.get("log_level", "INFO")
-        self.dataset_path = config.get("dataset_path", None)
         self.chunk_size = config.get("chunk_size", 1000)
         self.chunk_overlap = config.get("chunk_overlap", 200)
         self.embeddings = EmbeddingsConfig(config)

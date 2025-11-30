@@ -1,0 +1,3 @@
+document_source:
+  - type: directory
+    path: ../datasets/

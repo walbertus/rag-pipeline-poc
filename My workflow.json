@@ -1,0 +1,173 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "37e4c62b-3719-43a1-a3cc-05ba0152e3a9",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        624,
+        0
+      ],
+      "id": "c819b15a-7c0a-4245-8fc5-22870c3df516",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst arr = [];\n\nfor (const item of $input.all()) {\n  for (const file of item.json.files) {\n    arr.push({\n      token: file\n    });\n  }\n}\n\nreturn arr;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "91b1efde-22ff-4fa8-8a71-e13f57a98ce1",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "raw",
+        "fileName": "={{ $binary.data.fileName }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        176
+      ],
+      "id": "92c4e4d7-8b81-4366-9558-71056822d278",
+      "name": "Upload a file",
+      "credentials": {
+        "s3": {
+          "id": "ULHAhEwAXvxaCijW",
+          "name": "S3 account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://etlutil:8000/feishu/drive/list-files",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "d6e200f2-03e5-4614-a909-9fa411d8a9f6",
+      "name": "dummy lark drive get file list"
+    },
+    {
+      "parameters": {
+        "url": "=http://etlutil:8000/feishu/drive/files/{{ $json.token }}/download",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        816,
+        96
+      ],
+      "id": "722c2c99-35d5-44e4-9cd8-33c5faf71d28",
+      "name": "TODO lark drive download file"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "dummy lark drive get file list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "TODO lark drive download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload a file": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "dummy lark drive get file list": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TODO lark drive download file": {
+      "main": [
+        [
+          {
+            "node": "Upload a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "103a6086-f91c-47f7-9c52-cb71d2259e29",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "269fb06a1c6b0bb1642d2e7d619d189e60eec093642891afb42b99df6998f3ca"
+  },
+  "id": "u5vEqFVCzncNxSdE",
+  "tags": []
+}

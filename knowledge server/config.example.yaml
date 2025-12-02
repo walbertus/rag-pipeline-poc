@@ -1,0 +1,9 @@
+log_level: DEBUG
+vector_store:
+  type: milvus
+  url: "http://localhost:19530"
+  collection_name: knowledge_base
+  reset_collection: true
+  enable_full_text_search: true
+chunk_size: 1000
+chunk_overlap: 200

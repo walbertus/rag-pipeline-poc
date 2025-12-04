@@ -4,11 +4,12 @@ A Model Context Protocol (MCP) server that provides AI agents with access to a k
 
 ## Features
 
-- **Document Loading**: Supports PDF and Markdown files from local directories
+- **Document Loading**: Supports PDF and Markdown files from local directories, Lark Docs, and Lark Wikis
 - **Vector Storage**: Uses Milvus for efficient vector similarity search with full-text search support
 - **Embeddings**: Configurable embeddings via Ollama
 - **Text Chunking**: Recursive character text splitting with configurable chunk size and overlap
 - **MCP Integration**: Exposes knowledge base queries through FastMCP server
+- **Lark Integration**: Direct integration with Lark Suite for loading documents and wikis
 - **Flexible Configuration**: YAML-based configuration for easy customization
 
 ## Architecture
@@ -16,7 +17,9 @@ A Model Context Protocol (MCP) server that provides AI agents with access to a k
 ```
 ┌─────────────┐      ┌──────────────┐      ┌────────────┐
 │  Datasource │─────▶│    Loader    │─────▶│  Splitter  │
-│   (YAML)    │      │ (PDF/MD)     │      │            │
+│   (YAML)    │      │  Directory   │      │            │
+│             │      │  Lark Doc    │      │            │
+│             │      │  Lark Wiki   │      │            │
 └─────────────┘      └──────────────┘      └────────────┘
                                                    │
                                                    ▼
@@ -55,18 +58,62 @@ vector_store:
 chunk_size: 1000
 chunk_overlap: 200
 embeddings:
-  provider: ollama
-  model: nomic-embed-text
+  source: ollama
+  model: embeddinggemma:latest
+lark:
+  domain: "https://open.larksuite.com"
+  app_id: "your_app_id"
+  app_secret: "your_app_secret"
 ```
+
+**Configuration Options:**
+- `log_level`: Logging level (DEBUG, INFO, WARNING, ERROR) - applies to both application and Lark client
+- `vector_store`: Milvus configuration
+- `chunk_size`: Size of text chunks for splitting
+- `chunk_overlap`: Overlap between chunks
+- `embeddings`: Ollama embeddings configuration
+- `lark`: Lark Suite API credentials (required only if using Lark datasources)
 
 ### 2. Configure Data Sources
 
-Create `datasource.yaml`:
+Create `datasource.yaml` with one or more data sources:
+
+**Local Directory (PDF and Markdown files):**
 ```yaml
 datasource:
   - type: directory
     path: ../datasets/
 ```
+
+**Lark Document:**
+```yaml
+datasource:
+  - type: lark-doc
+    id: "doc-id"
+```
+
+**Lark Wiki:**
+```yaml
+datasource:
+  - type: lark-wiki
+    id: "wiki-id"
+```
+
+**Multiple Sources:**
+```yaml
+datasource:
+  - type: directory
+    path: ../datasets/
+  - type: lark-doc
+    id: "doc-id"
+  - type: lark-wiki
+    id: "wiki-id"
+```
+
+**Supported Datasource Types:**
+- `directory`: Load PDF and Markdown files from a local directory
+- `lark-doc`: Load a single Lark document by ID
+- `lark-wiki`: Load all pages from a Lark wiki by ID
 
 ### 3. Start Milvus
 
@@ -81,8 +128,14 @@ This will start Milvus on `http://localhost:19530`.
 
 ### Running the Server
 
+Using Python directly:
 ```bash
 uv run python main.py
+```
+
+Or using the Makefile:
+```bash
+make run
 ```
 
 The server will:
@@ -110,8 +163,9 @@ query_knowledge_base(
 ├── config/
 │   └── config.py           # Configuration loader
 ├── loader/
-│   ├── datasource.py       # Datasource abstraction
-│   └── directory.py        # Directory loader (PDF/MD)
+│   ├── factory.py          # Loader factory and datasource abstraction
+│   ├── directory.py        # Directory loader (PDF/MD)
+│   └── lark.py             # Lark Suite loaders (Doc/Wiki)
 ├── model/
 │   ├── factory.py          # Embeddings factory
 │   └── model_garden.py     # Model configurations
@@ -120,6 +174,7 @@ query_knowledge_base(
 ├── main.py                 # Application entry point
 ├── config.yaml             # Runtime configuration
 ├── datasource.yaml         # Data source definitions
+├── Makefile               # Development tasks
 └── pyproject.toml         # Project dependencies
 ```
 
@@ -131,15 +186,28 @@ query_knowledge_base(
 - **pymilvus**: Milvus vector database client
 - **pypdf**: PDF parsing
 - **pyyaml**: YAML configuration parsing
+- **lark-oapi**: Lark Suite Open API SDK
 
 ## Development
 
 ### Code Style
 
+Run all checks:
+```bash
+make check
+```
+
+Or run individual tasks:
+```bash
+make lint      # Run ruff check --fix
+make format    # Run ruff format
+make type-check # Run ty check
+```
+
 Format code using Ruff:
 ```bash
 uv run ruff format .
-uv run ruff check .
+uv run ruff check --fix
 ```
 
 ### Type Checking
@@ -154,6 +222,23 @@ If you encounter `ImportError: cannot import name 'Blob'`, ensure you're using t
 ```python
 from langchain_community.document_loaders.blob_loaders import Blob
 ```
+
+### Lark API Issues
+
+**Authentication Errors:**
+- Verify `app_id` and `app_secret` in `config.yaml`
+- Ensure your Lark app has the required permissions:
+  - `docx:document` for document access
+  - `wiki:wiki` for wiki access
+
+**Document Not Found:**
+- Verify the document/wiki ID is correct
+- Check that your app has access to the document/wiki
+- Ensure the document/wiki hasn't been deleted
+
+**Getting Document IDs:**
+- For Lark Docs: The ID is in the URL: `https://xxx.larksuite.com/docx/{document_id}`
+- For Lark Wikis: The ID is in the URL: `https://xxx.larksuite.com/wiki/{wiki_id}`
 
 ### Milvus Connection Issues
 

@@ -4,12 +4,12 @@ A Model Context Protocol (MCP) server that provides AI agents with access to a k
 
 ## Features
 
-- **Document Loading**: Supports PDF and Markdown files from local directories, Lark Docs, and Lark Wikis
+- **Document Loading**: Supports PDF and Markdown files from local directories, Lark Docs, Lark Wikis, and Lark Wiki Spaces
 - **Vector Storage**: Uses Milvus for efficient vector similarity search with full-text search support
 - **Embeddings**: Configurable embeddings via Ollama
 - **Text Chunking**: Recursive character text splitting with configurable chunk size and overlap
 - **MCP Integration**: Exposes knowledge base queries through FastMCP server
-- **Lark Integration**: Direct integration with Lark Suite for loading documents and wikis
+- **Lark Integration**: Direct integration with Lark Suite for loading documents, wikis, and entire wiki spaces
 - **Flexible Configuration**: YAML-based configuration for easy customization
 
 ## Architecture
@@ -20,6 +20,7 @@ A Model Context Protocol (MCP) server that provides AI agents with access to a k
 │   (YAML)    │      │  Directory   │      │            │
 │             │      │  Lark Doc    │      │            │
 │             │      │  Lark Wiki   │      │            │
+│             │      │  Lark Space  │      │            │
 └─────────────┘      └──────────────┘      └────────────┘
                                                    │
                                                    ▼
@@ -99,6 +100,13 @@ datasource:
     id: "wiki-id"
 ```
 
+**Lark Wiki Space (loads all documents in a space):**
+```yaml
+datasource:
+  - type: lark-space
+    id: "space-id"
+```
+
 **Multiple Sources:**
 ```yaml
 datasource:
@@ -108,12 +116,15 @@ datasource:
     id: "doc-id"
   - type: lark-wiki
     id: "wiki-id"
+  - type: lark-space
+    id: "space-id"
 ```
 
 **Supported Datasource Types:**
 - `directory`: Load PDF and Markdown files from a local directory
 - `lark-doc`: Load a single Lark document by ID
-- `lark-wiki`: Load all pages from a Lark wiki by ID
+- `lark-wiki`: Load a single wiki page by ID
+- `lark-space`: Load all documents from a Lark wiki space by space ID (recursively loads all child pages)
 
 ### 3. Start Milvus
 
@@ -165,7 +176,7 @@ query_knowledge_base(
 ├── loader/
 │   ├── factory.py          # Loader factory and datasource abstraction
 │   ├── directory.py        # Directory loader (PDF/MD)
-│   └── lark.py             # Lark Suite loaders (Doc/Wiki)
+│   └── lark.py             # Lark Suite loaders (Doc/Wiki/Space)
 ├── model/
 │   ├── factory.py          # Embeddings factory
 │   └── model_garden.py     # Model configurations
@@ -239,6 +250,7 @@ from langchain_community.document_loaders.blob_loaders import Blob
 **Getting Document IDs:**
 - For Lark Docs: The ID is in the URL: `https://xxx.larksuite.com/docx/{document_id}`
 - For Lark Wikis: The ID is in the URL: `https://xxx.larksuite.com/wiki/{wiki_id}`
+- For Lark Spaces: The space ID can be found in wiki space settings or via the Lark API
 
 ### Milvus Connection Issues
 

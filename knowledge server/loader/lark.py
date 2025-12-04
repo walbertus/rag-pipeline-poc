@@ -40,6 +40,7 @@ class LarkSuiteDocLoader(BaseLoader):
             "document_id": self.document_id,
             "revision_id": response_metadata.data.document.revision_id,
             "title": response_metadata.data.document.title,
+            "type": "lark-doc",
             "source": f"lark-doc://{self.document_id}",
         }
 
@@ -52,6 +53,9 @@ class LarkSuiteDocLoader(BaseLoader):
 
 
 class LarkSuiteWikiLoader(LarkSuiteDocLoader):
+    wiki_metadata: dict
+    wiki_id: str
+
     def __init__(self, client: lark.Client, wiki_id: str):
         request = GetNodeSpaceRequest.builder().token(wiki_id).obj_type("wiki").build()
 
@@ -59,7 +63,22 @@ class LarkSuiteWikiLoader(LarkSuiteDocLoader):
         if not response.success():
             raise RuntimeError(f"Failed to fetch wiki node space: {response.msg}")
 
+        self.wiki_id = wiki_id
+        self.wiki_metadata = {
+            "owner": response.data.node.owner,
+            "creator": response.data.node.creator,
+        }
+
         document_id = response.data.node.obj_token
         if not document_id:
             raise RuntimeError("Wiki node space does not contain a valid document ID.")
         super().__init__(client=client, document_id=str(document_id))
+
+    def lazy_load(self):
+        document = super().lazy_load()
+        for doc in document:
+            doc.metadata["source"] = f"lark-wiki://{self.wiki_id}"
+            doc.metadata["type"] = "lark-wiki"
+            doc.metadata["lark_owner"] = self.wiki_metadata["owner"]
+            doc.metadata["lark_creator"] = self.wiki_metadata["creator"]
+            yield doc

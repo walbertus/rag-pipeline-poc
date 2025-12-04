@@ -19,12 +19,12 @@ class Datasource:
     def __init__(self, type: str, path: str = "", url: str = "", id: str = ""):
         if not type:
             raise ValueError("Document source type is missing.")
-        
+
         self.type = type
         self.path = path
         self.url = url
         self.id = id
-        
+
         if self.type == "directory" and not self.path:
             raise ValueError("Directory source path is missing.")
         elif self.type == "lark-doc" and not self.id:

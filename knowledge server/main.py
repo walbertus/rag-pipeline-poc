@@ -41,7 +41,7 @@ def read_datasource(logger: logging.Logger) -> list[Datasource]:
                 type=source.get("type", ""),
                 path=source.get("path", ""),
                 url=source.get("url", ""),
-                id=source.get("id", "")
+                id=source.get("id", ""),
             )
         )
 
@@ -55,7 +55,9 @@ def main():
     logger.setLevel(config.log_level.upper())
     logger.debug(config)
 
-    lark_log_level = getattr(lark.LogLevel, config.log_level.upper(), lark.LogLevel.INFO)
+    lark_log_level = getattr(
+        lark.LogLevel, config.log_level.upper(), lark.LogLevel.INFO
+    )
     lark_client = (
         lark.Client.builder()
         .domain(config.lark.domain)

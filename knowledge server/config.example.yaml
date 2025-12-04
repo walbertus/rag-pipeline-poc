@@ -7,3 +7,10 @@ vector_store:
   enable_full_text_search: true
 chunk_size: 1000
 chunk_overlap: 200
+embeddings:
+  source: ollama
+  model: embeddinggemma:latest
+lark:
+  domain: "https://open.larksuite.com"
+  app_id: "app_id_here"
+  app_secret: "app_secret_here"

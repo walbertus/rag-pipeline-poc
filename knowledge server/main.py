@@ -1,11 +1,14 @@
 import logging
 from config.config import Config
-from loader.datasource import Datasource, DatasourceLoader
+from loader.factory import Datasource, LoaderFactory
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from mcp.server.fastmcp import FastMCP
 
 from model.factory import EmbeddingsFactory
 from vector_store.milvus import MilvusVectorStore
+
+import lark_oapi as lark
+
 
 CONFIG_FILE_PATH = "config.yaml"
 
@@ -35,13 +38,24 @@ def read_datasource(logger: logging.Logger) -> list[Datasource]:
     for source in from_yaml.get("datasource", []):
         if "type" not in source:
             raise ValueError("Document source type is missing.")
-        if source["type"] == "directory" and "path" not in source:
-            raise ValueError("Directory source path is missing.")
-        datasources.append(
-            Datasource(
-                source["type"], source.get("path", None), source.get("url", None)
+        if source["type"] == "directory":
+            if "path" not in source:
+                raise ValueError("Directory source path is missing.")
+            datasources.append(
+                Datasource(
+                    source["type"], source.get("path", None), source.get("url", None)
+                )
             )
-        )
+        elif source["type"] == "lark-doc":
+            if "id" not in source:
+                raise ValueError("Lark document source id is missing.")
+            datasources.append(Datasource(source["type"], id=source.get("id", None)))
+        elif source["type"] == "lark-wiki":
+            if "id" not in source:
+                raise ValueError("Lark wiki source id is missing.")
+            datasources.append(Datasource(source["type"], id=source.get("id", None)))
+        else:
+            raise ValueError(f"Unsupported document source type: {source['type']}")
 
     return datasources
 
@@ -53,8 +67,19 @@ def main():
     logger.setLevel(config.log_level.upper())
     logger.debug(config)
 
+    lark_log_level = getattr(lark.LogLevel, config.log_level.upper(), lark.LogLevel.INFO)
+    lark_client = (
+        lark.Client.builder()
+        .domain(config.lark.domain)
+        .app_id(config.lark.app_id)
+        .app_secret(config.lark.app_secret)
+        .log_level(lark_log_level)
+        .build()
+    )
+
     datasources = read_datasource(logger)
-    loaders = [DatasourceLoader(datasource, logger) for datasource in datasources]
+    loaderFactory = LoaderFactory(lark_client=lark_client, logger=logger)
+    loaders = [loaderFactory.get_loader(datasource) for datasource in datasources]
 
     docs = []
     for loader in loaders:
@@ -84,27 +109,17 @@ def main():
     logger.info("Adding %d document chunks to the vector store", len(chunks))
     vector_store.add_documents(chunks)
 
-    logger.debug(
-        "Searching for query: %s", "What is Barito project name is inspired from?"
-    )
-    results = vector_store.search(
-        query="What is Barito project name is inspired from?", top_k=4
-    )
-    logger.debug("Search results total: %s", len(results))
-    for i, result in enumerate(results):
-        logger.info("Result %d: %s", i + 1, result.page_content[:200])
-
-    logger.info(
-        "Searching for query: %s",
+    queries = [
+        "What is Barito project name is inspired from?",
         "Who is the goto financial head of consumer payment infrastructure?",
-    )
-    results = vector_store.search(
-        query="Who is the goto financial head of consumer payment infrastructure?",
-        top_k=4,
-    )
-    logger.debug("Search results total: %s", len(results))
-    for i, result in enumerate(results):
-        logger.info("Result %d: %s", i + 1, result.page_content[:200])
+        "How to query pod metrics?",
+    ]
+    for query in queries:
+        logger.debug("Searching for query: %s", query)
+        results = vector_store.search(query=query, top_k=4)
+        logger.debug("Search results total: %s", len(results))
+        for i, result in enumerate(results):
+            logger.info("Result %d: %s", i + 1, result.page_content[:200])
 
     mcp_server = FastMCP("KnowledgeServer")
 

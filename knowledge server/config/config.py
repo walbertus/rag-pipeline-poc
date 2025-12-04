@@ -23,6 +23,7 @@ class Config:
         self.chunk_size = config.get("chunk_size", 1000)
         self.chunk_overlap = config.get("chunk_overlap", 200)
         self.embeddings = EmbeddingsConfig(config)
+        self.lark = LarkConfig(config)
 
 
 class EmbeddingsConfig:
@@ -36,6 +37,21 @@ class EmbeddingsConfig:
 
         self.source = embeddings_config.get("source", None)
         self.model = embeddings_config.get("model", None)
+
+
+class LarkConfig:
+    domain: str
+    app_id: str
+    app_secret: str
+
+    def __init__(self, config: dict):
+        lark_config = config.get("lark", None)
+        if lark_config is None:
+            raise ValueError("Lark configuration is missing in the config file.")
+
+        self.domain = lark_config.get("domain", None)
+        self.app_id = lark_config.get("app_id", None)
+        self.app_secret = lark_config.get("app_secret", None)
 
 
 class VectorStoreConfig:

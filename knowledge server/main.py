@@ -92,11 +92,11 @@ def main():
 
     for loader in loaders:
         for doc in loader.lazy_load():
-            logger.debug("Document content: %s", doc.page_content[:20])
-            logger.info(
-                "Loaded document from %s", doc.metadata.get("source", "unknown")
-            )
             document = doc  # make a copy from iterator to single Document
+            logger.debug("Document content: %s", document.page_content[:20])
+            logger.info(
+                "Loaded document from %s", document.metadata.get("source", "unknown")
+            )
             chunks = splitter.split_documents([document])
             logger.info("Adding %d document chunks to the vector store", len(chunks))
             vector_store.add_documents(chunks)
